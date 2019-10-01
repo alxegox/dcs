@@ -1,5 +1,6 @@
 import os
 import inspect
+import logging
 
 from dotenv import load_dotenv
 from dataclasses import dataclass
@@ -9,22 +10,25 @@ load_dotenv()
 
 @dataclass
 class Config:
-    redis_host: str
-    redis_port: int
+    db_host: str
+    db_port: int
+    db_name: str
+    app_host: str
+    app_port: int    
 
     def __post_init__(self):
         try:
-            self.redis_port = int(self.redis_port)
+            self.db_port = int(self.db_port)
+            self.app_port = int(self.app_port)
         except ValueError:
             pass
-            # logger.("REDIS_PORT must be int")
             
 
     @classmethod
     def from_dict(cls, env):      
         return cls(**{
-            k: v for k, v in env.items() 
-            if k in inspect.signature(cls).parameters
+            k.lower(): v for k, v in env.items() 
+            if k.lower() in inspect.signature(cls).parameters
         })
 
 
@@ -40,4 +44,4 @@ class ConfigFieldMissingException(ConfigException):
 
 config = Config.from_dict(os.environ)
 
-print(config)
+logging.error(config)

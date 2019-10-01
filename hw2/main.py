@@ -1,53 +1,45 @@
 from aiohttp import web
-import logging
 import redis
+import json
+from settings import config
+from aiohttp_validate import validate
 
 REDIS_SET_NAME = 'inc'
 
-logging.basicConfig()
 
-r = redis.Redis(host='redis', port=6379, db=0)
+r = redis.Redis(host=config.db_host, port=config.db_port, db=0)
 
 routes = web.RouteTableDef()
 
 class Storage:
-    """Хранение истории запросов."""
 
+    pass
 
+with open('jsonschema/increment/request.json') as json_file:
+    increment_validatior = json.load(json_file)
 
-
-@routes.post('/inc')
+@validate(increment_validatior)
+@routes.post('/increment')
 async def handle(request: web.Request):
     number = await request.text()
-    try:
-        parsed_number = int(number, 10)
-    except ValueError:
-        logging.warning('number parsing error')
-        return web.Response(body='number parsing error', status=400)
-
-    if parsed_number < 0:
-        logging.warning('number must be positive')
-        return web.Response(body='number must be positive', status=400)
+    number_json = json.loads(number)
+    parsed_number = number_json['number']
 
     if r.sismember(REDIS_SET_NAME, number):
-        logging.warning('number already exists')
         return web.Response(body='number already exists', status=400)
 
-    incremented_number = f'{parsed_number + 1}'
-    if r.sismember(REDIS_SET_NAME, incremented_number):
-        logging.warning('incremented number already exists')
-        return web.Response(body='incremented number already exists', status=400)
+    inc = f'{parsed_number + 1}'
+    if r.sismember(REDIS_SET_NAME, inc):
+        return web.Response(body='inc number already exists', status=400)
 
     r.sadd(REDIS_SET_NAME, parsed_number)
 
-    return web.Response(body=incremented_number)
-
-
-app = web.Application()
-app.add_routes(routes)
+    return web.Response(body=inc)
 
 def main():
-    logging.basicConfig(level=logging.s.DEBUG)
+    app = web.Application()
+    app.add_routes(routes)
+    web.run_app(app, host=config.app_host, port=config.app_port)
 
 if __name__ == '__main__':
-    web.run_app(app, port=8090)
+    main()
